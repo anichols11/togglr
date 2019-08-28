@@ -1,0 +1,69 @@
+version: "3.5"
+services:
+  redis:
+    image: redis:latest
+    restart: always
+    container_name: togglr-redis
+    ports:
+      - "6379:6379"
+  db:
+    image: mysql:5.7
+    restart: always
+    container_name: togglr-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=test
+      - MYSQL_USER=togglr
+      - MYSQL_PASSWORD=test
+      - MYSQL_DATABASE=togglr
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./togglr-mysql/sql-scripts:/docker-entrypoint-initdb.d
+  ui:
+    restart: always
+    image: node:8.11.3-alpine
+    command: npm run docker
+    container_name: togglr-ui
+    links:
+      - "togglr-api:api"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./togglr-ui:/usr/src/app
+    working_dir: /usr/src/app
+    environment:
+      - NUXT_PROXY_TARGET=http://togglr-api:8080
+      - HOST=0.0.0.0
+  togglr-api:
+    depends_on:
+      - db
+      - redis
+    restart: always
+    container_name: togglr-api
+    build: togglr-api/
+    ports:
+      - "8080:8080"
+    links:
+      - redis
+      - db
+    volumes:
+      # Mount the .m2 cache for re-use of dependencies
+      - ~/.m2/:/root/.m2/
+    environment:
+      - SERVER_SERVLET_SESSION_COOKIE_DOMAIN=localhost
+      - SSO_SAML_COOKIE_DOMAIN=localhost
+      - SERVER_SERVLET_CONTEXT-PATH=/togglr-api
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db/togglr
+      - SPRING_DATASOURCE_USERNAME=togglr
+      - SPRING_DATASOURCE_PASSWORD=test
+      - SPRING_SECURITY_USER_PASSWORD=pass123
+      - SPRING_SECURITY_USER_NAME=test123
+      - SPRING_PROFILES_ACTIVE=clouddev,mysql
+      - HEB_TOGGLR_APP-DOMAIN=localhost
+      - HEB_TOGGLR_CLIENT_APP-ID=1
+      - HEB_TOGGLR_CLIENT_SERVER-URL=http://localhost:8080/togglr-api/features/active
+      - HEB_TOGGLR_CACHE-TIME=10000
+      - REDIS_HOST=redis://togglr-redis
+      - REDIS_PORT=6379
+volumes: db_data:
