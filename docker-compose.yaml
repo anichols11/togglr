@@ -66,4 +66,5 @@ services:
       - HEB_TOGGLR_CACHE-TIME=10000
       - REDIS_HOST=redis://togglr-redis
       - REDIS_PORT=6379
-volumes: db_data:
+volumes: 
+  db_data:
